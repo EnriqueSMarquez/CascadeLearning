@@ -1,16 +1,14 @@
 from __future__ import print_function
 from keras.datasets import cifar10
-from keras.preprocessing.image import DirectoryIterator, Iterator, transform_matrix_offset_center, flip_axis, apply_transform
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
 from keras.optimizers import SGD
-from keras.utils import np_utils
 from keras.utils import np_utils, generic_utils
-from keras.regularizers import WeightRegularizer, l2
-from keras.callbacks import Callback
+from keras.regularizers import l2
 import cPickle
 import numpy as np
+from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadeTraining
 
 batch_size = 64 #BATCH SIZE OF TRAINING
 nb_classes = 10 #NUMBER OF CLASSES IN DATASET
@@ -76,7 +74,7 @@ for epochs in epochsInRun: #RUN THE CASCADE LEARNING FOR ALL THE GIVEN EPOCHS
         currentFolder = folderToSaveResults + str(int(epochs)) + '/info' #CURRENT RESULTS PATH
         model = getModel() #GET THE ALL CNN MODEL
         #CASCADE THE ALL CNN FOR THE CURRENT RUN
-        trainedModel, history = CascadePretraining(model,X_train,Y_train,currentFolder,
+        trainedModel, history = CascadeTraining(model,X_train,Y_train,currentFolder,
                                                       dataAugmentation=datagen,
                                                       X_val=X_test,Y_val=Y_test,
                                                       epochs=epochs,

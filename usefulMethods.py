@@ -391,7 +391,7 @@ def GetConfusionMatrix(modelToTest,testData,labels,datagen,numberOfClasses=10):
     print(('ACCURACY IN CONFUSION MATRIX : %.2f') % (np.sum(np.diagonal(confusionMatrix))/float(len(testData))))
     return confusionMatrix
 
-def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dataAugmentation=None,
+def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dataAugmentation=None,
                         X_val=None,Y_val=None,epochs=20,loss='categorical_crossentropy',
                         optimizer='sgd',initialLr=0.01,weightDecay=10e-4,patience=10,
                         windowSize=5,batch_size=128):
@@ -413,47 +413,44 @@ def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,
         #Returns
             Results of training (accuracy, loss), and full model once cascaded
     """
-    nextModelToPredict = Sequential()
-    nextModelToTrain = Sequential()
-    saveImportLayersIndexes = list()
-    weights = list()
-    firstIterationFlag = True
+    nextModelToTrain = Sequential() #INIT MODEL TO TRAIN
+    saveImportLayersIndexes = list() #INIT VARIABLE TO STORE THE INDEXES OF CORE LAYERS
+    # weights = list() #
     history = dict()
 
-    if stringOfHistory != None and os.path.isfile(stringOfHistory + '.txt'):
+    if stringOfHistory != None and os.path.isfile(stringOfHistory + '.txt'): #LOAD HISTORY FILE IF IT EXISTS
         history = cPickle.load(open(stringOfHistory + '.txt','r'))
-    else:
+    else: #OTHERWISE INITIALIZE
         history = dict()
-    if stringOfHistory != None and os.path.isfile(stringOfHistory + 'Tmp.json'):
+    if stringOfHistory != None and os.path.isfile(stringOfHistory + 'Tmp.json'): #LOAD MODEL TO PREDICT
         nextModelToPredict = model_from_json(open(stringOfHistory +'Tmp.json', 'r').read())
         nextModelToPredict.load_weights(stringOfHistory + 'Tmp.h5')
         nextModelToPredict = nextModelToPredict.layers
-    else:
+    else: #OTHERWISE INITIALIZE
         nextModelToPredict = None
     #SAVE IMPORTANT LAYERS INDEXES
-    numberOfImportantLayers = 0
     i = 0
-    for currentLayer in model.layers:
-        # if((currentLayer.get_config()['name'][0:-2] == 'convolution2d') or (currentLayer.get_config()['name'][0:-2] == 'dense')):
+    for currentLayer in model.layers: #GET THE INDEX OF CORE LAYERS IN GIVEN MODEL
         if((currentLayer.get_config()['name'][0] == 'c') or (currentLayer.get_config()['name'][0] == 'f')):
             saveImportLayersIndexes.append(i)
         i += 1
-    for i in range(len(saveImportLayersIndexes)-1): #MINUS HE LAST LAYER (OUTPUT)
-        if('iter' + str(i) not in history.keys()):
-            history['iter' + str(i)] = dict()
+    for i in range(len(saveImportLayersIndexes)-1): #UP TO THE FLATTEN LAYER
+        if('iter' + str(i) not in history.keys()): #IF THE LAYER HAS NOT BEEN TRAINED
+            history['iter' + str(i)] = dict() #INITIALIZE DICTIONARY TO SAVE RESULTS OF CURRENT RUN
             print('ITERATION %d' % (i))
-            
-            if(i == 0):
+            if(i == 0): #IF ITS THE FIRST ITERATION
                 nextModelToTrain = list()
-                for j in model.layers[0:saveImportLayersIndexes[i+1]]:
+                for j in model.layers[0:saveImportLayersIndexes[i+1]]: #FOR CORRESPONDING LAYERS FOR CURRENT RUN IN MODEL
                     nextModelToTrain.append(j)
                 if(nextModelToTrain[-1].get_config()['name'][0] == 'z'):
                     del nextModelToTrain[-1]
-                tmp = Sequential()
-                for j in nextModelToTrain:
+                tmp = Sequential() #CREATE KERAS MODEL
+                for j in nextModelToTrain: #APPEND ALL THE NECESSARY LAYERS TO THE MODEL
                     tmp.add(j)
                 nextModelToTrain = tmp
                 del tmp
+
+                #APPEND OUTPUT BLOCK TO MODEL
                 nextModelToTrain.add(Flatten())
                 nextModelToTrain.add(Dense(512,W_regularizer=l2(weightDecay)))
                 nextModelToTrain.add(Activation('relu'))
@@ -464,25 +461,27 @@ def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,
                 nextModelToTrain.add(Dense(10,W_regularizer=l2(weightDecay)))
                 nextModelToTrain.add(Activation('softmax'))
 
-            else:
+            else: #IF IS NOT THE FIRST ITERATION
                 nextModelToTrain = list()
                 tmp = Sequential()
-                for j in nextModelToPredict:
+                for j in nextModelToPredict: #CREATE KERAS MODEL FOR MODEL TO PREDICT
                     tmp.add(j)
                 nextModelToPredict = tmp
                 del tmp
-                nextModelToPredict.compile(loss=loss,optimizer=optimizer,metrics=['accuracy'])
-                if stringOfHistory != None:
-                    open(stringOfHistory + 'Tmp.json', 'w').write(nextModelToPredict.to_json())
+                nextModelToPredict.compile(loss=loss,optimizer=optimizer,metrics=['accuracy']) #COMPILE MODEL
+                if stringOfHistory != None: #IF SAVING IS REQUIRED (IN CASE THE SCRIPT CRASHES)
+                    open(stringOfHistory + 'Tmp.json', 'w').write(nextModelToPredict.to_json()) #SAVE MODEL
                     nextModelToPredict.save_weights(stringOfHistory + 'Tmp.h5',overwrite=True)
-                #CHECK OUTPUT OF NEXTMODELTOPREDICT AND SET IT TO THE NEXTMODELTOTRAIN AS INPUT
+                #CHECK OUTPUT OF nextModelToPredict AND SET IT TO THE nextModelToTrain AS INPUT
                 if(model.layers[saveImportLayersIndexes[i]-1].get_config()['name'][0] == 'z'):
                     nextModelToTrain.append(model.layers[saveImportLayersIndexes[i]-1])
-                for k in model.layers[saveImportLayersIndexes[i]:saveImportLayersIndexes[i+1]]:
+                for k in model.layers[saveImportLayersIndexes[i]:saveImportLayersIndexes[i+1]]: #GET THE LAYERS OF NEXT MODEL TO TRAIN
                     nextModelToTrain.append(k)
-                if(nextModelToTrain[-1].get_config()['name'][0] == 'z'):
+                if(nextModelToTrain[-1].get_config()['name'][0] == 'z'): #MAKE SURE MODEL DOES NOT END IN A ZEROPADDING LAYER
                     del nextModelToTrain[-1]
-                nextShape = nextModelToPredict.predict(X_train[0:2]).shape[1::]
+                nextShape = nextModelToPredict.predict(X_train[0:2]).shape[1::] #GET INPUT SHAPE OF THE MODEL TO TRAIN
+                #SET THE INPUT SHAPE OF MODEL, PRESERVING PREVIOUS CONFIGURATION.
+                #IF IT IS A CONVOLUTIONAL LAYER
                 if(nextModelToTrain[0].get_config()['name'][0] == 'c'):
                     k = nextModelToTrain[0].get_config()
                     layerToAppend = Convolution2D(k['nb_filter'],
@@ -493,17 +492,21 @@ def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,
                                                  input_shape=(nextShape),
                                                  subsample=k['subsample'],
                                                  weights=nextModelToTrain[0].get_weights())
+                #IF IT IS A PADDING LAYER
                 elif(nextModelToTrain[0].get_config()['name'][0] == 'z'):
                     layerToAppend = ZeroPadding2D((1,1),input_shape=nextShape,name='zCL'+str(i))
                     nextModelToTrain[0] = layerToAppend
+                #IF IT IS A DENSE LAYER
                 elif(nextModelToTrain[0].get_config()['name'][0:-2] == 'dense'):
                     k = nextModelToTrain[0].get_config()
                     nextShape = nextModelToPredict.predict(X_train[0:2]).shape[1::][0]
                     layerToAppend = Dense(k['output_dim'],input_dim=nextShape)
                     nextModelToTrain[0] = layerToAppend
             
+                #IF THE OUTPUT HAS NOT BEEN FLATTENED 
                 if((nextModelToTrain[-1].get_config()['name'][0:-2] != 'flatten') and (nextModelToTrain[0].get_config()['name'][0:-2] != 'dense') and (nextModelToTrain[0].get_config()['name'][0:-3] != 'dense')):
                     nextModelToTrain.append(Flatten())
+                #IF OUTPUT BLOCK HAS NOT BEEN CONNECTED
                 if((nextModelToTrain[0].get_config()['name'][0:-2] != 'dense') and (nextModelToTrain[0].get_config()['name'][0:-3] != 'dense')):
                     k = nextModelToTrain[0].get_config()
                     nextModelToTrain.append(Dense(512,W_regularizer=l2(weightDecay)))
@@ -515,31 +518,31 @@ def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,
                 nextModelToTrain.append(Dense(10,W_regularizer=l2(weightDecay)))
                 nextModelToTrain.append(Activation('softmax'))
 
+                #INITIALIZE KERAS MODEL USING LAYERS IN nextModelToTrain LIST
                 tmp = Sequential()
                 for k in nextModelToTrain:
                     tmp.add(k)
                 nextModelToTrain = tmp
                 del tmp
-            K.set_value(optimizer.lr,initialLr)
+            K.set_value(optimizer.lr,initialLr) #SET INITIAL LEARNING RATE (IT MIGHT HAVE BEEN CHANGED BY PREVIOUS ITERATIONS)
             nextModelToTrain.compile(loss=loss,optimizer=optimizer,metrics=['accuracy'])
-            counter = 0
                 
-            if nextModelToPredict != None:
-                print('MODEL TO PREDICT LAYERS')
+            if nextModelToPredict != None: #IF MODEL TO PREDICT EXISTS
+                print('MODEL TO PREDICT LAYERS') #PLOT THE LAYERS OF THE MODEL
                 for k in nextModelToPredict.layers:
                     print(k.get_config()['name'])
 
-            print('MODEL TO TRAIN LAYERS')
+            print('MODEL TO TRAIN LAYERS') #PLOT LAYERS OF MODEL TO TRAIN
             for k in nextModelToTrain.layers:
                 print(k.get_config()['name'])   
-            currentEpochs = epochs + (10*i)
-            if currentEpochs > 50:
+            currentEpochs = epochs + (10*i) #SET THE NUMBER OF EPOCHS OF CURRENT RUN
+            if currentEpochs > 50: #MAXIMUM NUMBER OF EPOCHS ON CASCADE LEARNING IS 50
                 currentEpochs = 50 
-            dataAugmentation.modelToPredict = nextModelToPredict
-            #GATHERING THE DATA
+            dataAugmentation.modelToPredict = nextModelToPredict #SET MODEL TO GENERATE ARTIFICIAL INPUTS IN GENERATOR
             tmpX = list()
             tmpY = list()
             progbar = generic_utils.Progbar(len(X_train))
+            #LOAD ARITIFICAL INPUTS
             print('LOADING TRAINING DATA')
             for X_batch, Y_batch in dataAugmentation.flow(X_train, Y_train,batch_size=1):
                 tmpX.append(X_batch[0,:])
@@ -550,27 +553,29 @@ def CascadePretraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,
                     break
             tmpX = np.asarray(tmpX)
             tmpY = np.asarray(tmpY)
-
+            #CALLBACK TO REDUCE THE LEARNING RATE AND STORE INFORMATION OF VALIDATION AND TESTING RESULTS DURING TRAINING
             learningCall = LearningRateC(X_val,Y_val,X_test,Y_test,dataAugmentation,batch_size,patience=patience,windowSize=windowSize)
+            #TRAIN THE MODEL
             tmpHistory = nextModelToTrain.fit(tmpX, tmpY, batch_size=batch_size, nb_epoch=currentEpochs, verbose=2,callbacks=[learningCall])
 
-            if(nextModelToPredict == None):
-                nextModelToPredict = nextModelToTrain.layers[0:-9]
-            else:
+            if(nextModelToPredict == None): #IF MODEL TO PREDICT DOES NOT EXIST
+                nextModelToPredict = nextModelToTrain.layers[0:-9] #TAKE THE LAYERS OF nextModelToTrain WITHOUT OUTPUT BLOCK
+            else: #OTHERWISE APPEND LAYERS (WITHOUT THE OUTPUT BLOCK) OF nextModelToTrain IN nextModelToPredict
                 nextModelToPredict = nextModelToPredict.layers
                 nextModelToPredict.extend(nextModelToTrain.layers[0:-9])
-
+            #SAVE RESULTS IN SINGLE DICTIONARY, ALSO CALCULATE THE CONFUSION MATRIX OF THE TRAINED MODEL
             history['iter'+str(i)].update(learningCall.history)
             history['iter'+str(i)]['lossTraining'] = tmpHistory.history['loss']
             history['iter'+str(i)]['accuracyTraining'] = tmpHistory.history['acc']
             history['iter'+str(i)]['confusionMatrix'] = GetConfusionMatrix(nextModelToTrain,X_test,Y_test,dataAugmentation)
-            if stringOfHistory != None:
+            if stringOfHistory != None: #SAVE (IF NECESSARY)
                 with open(stringOfHistory + '.txt','w') as fp:
                     cPickle.dump(history,fp)
+    #GET WHOLE CASCADED MODEL
     modelToReturn = Sequential()
     for i in nextModelToPredict:
         modelToReturn.add(i)
     for i in nextModelToTrain.layers[0:-9]:
         modelToReturn.add(i)
 
-    return modelToReturn, history
+    return modelToReturn, history #RETURN CASCADED MODEL AND RESULTS OF TRAINING

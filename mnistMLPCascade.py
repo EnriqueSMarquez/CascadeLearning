@@ -2,21 +2,17 @@ from __future__ import print_function
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.optimizers import SGD
-from keras.utils import np_utils
 from keras.utils import np_utils, generic_utils
-from keras.regularizers import WeightRegularizer, l2
-from keras.callbacks import Callback
+from keras.regularizers import l2
 from keras.preprocessing.image import ImageDataGenerator
 import cPickle
 import numpy as np
-import time
-from keras import backend as K
-from scipy import linalg
 from keras.models import model_from_json
-import os
 from keras.utils.visualize_util import plot
 from keras.models import Model
 from keras.datasets import mnist
+from usefulMethods import LearningRateC
+
 
 weightDecay = 10e-4
 lr = 0.01
