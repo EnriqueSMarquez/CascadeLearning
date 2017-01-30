@@ -13,7 +13,6 @@ from keras.models import Model
 from keras.datasets import mnist
 from usefulMethods import LearningRateC
 
-
 weightDecay = 10e-4
 lr = 0.01
 sgd = SGD(lr=lr, momentum=0.9)
