@@ -8,10 +8,61 @@ from keras.utils import np_utils, generic_utils
 from keras.regularizers import l2
 import cPickle
 import numpy as np
-from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadePretraining
+from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadeTraining
 
 #GET THE ALL CNN MODEL WITH DENSE LAYERS
-def getModel():
+def getModelCL():
+    model = Sequential()
+    model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
+    model.add(Convolution2D(96,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(96,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(96,3,3,subsample=(2,2),W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(192,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(192,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(192,3,3,subsample=(2,2),W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(384,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(384,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(384,3,3,subsample=(2,2),W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+
+    model.add(ZeroPadding2D((1,1)))
+    model.add(Convolution2D(384,3,3,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+
+    model.add(Flatten())
+    model.add(Dense(512,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(256,W_regularizer=l2(weightDecay)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(10,W_regularizer=l2(weightDecay)))
+    model.add(Activation('softmax'))
+    return model
+
+#GET THE ALL CNN MODEL WITH DENSE LAYERS
+def getModelEE():
     model = Sequential()
     model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
     model.add(Convolution2D(96,3,3,W_regularizer=l2(weightDecay)))
@@ -52,7 +103,7 @@ def getModel():
 
 batch_size = 64 #BATCH SIZE OF TRAINING AND TESTING
 nb_classes = 10 #NUMBER OF CLASSES
-nb_epoch = 20 #NUMBER OF EPOCHS DURING CASCADE TRAINING
+nb_epoch = 50 #NUMBER OF EPOCHS DURING CASCADE TRAINING
 lr = 0.01 #INITIAL LEARNING RATE
 weightDecay = 10e-4 #WEIGHT DECAY OF THE TRAINING PROCEDURE
 sgd = SGD(lr=lr, momentum=0.9) #OPTIMIZER
@@ -60,7 +111,7 @@ saveResults = False
 
 (X_train, y_train), (X_test, y_test) = cifar10.load_data() #LOAD DATA
 
-stringOfHistory = './TheAllCNN_WithDenseBlock/ResultsTest/theAllCNN_NM_Only_test'
+stringOfHistory = './TheAllCNN_Results/theAllCNN_BiggerNet_NoDropout'
 
 Y_train = np_utils.to_categorical(y_train, nb_classes) #CONVERT CLASS VECTORNS INTO AN OUTPUT MATRIX
 Y_test = np_utils.to_categorical(y_test, nb_classes)
@@ -93,7 +144,7 @@ datagen = ImageDataGeneratorForCascading(featurewise_center=True,  #MEAN 0
 
 datagen.fit(X_train) #CALCULATE NORMALIZATION AND WHITENING PARAMETERS
 
-model = getModel() #GET MODEL
+model = getModelCL() #GET MODEL
 
 #CASCADE THE MODEL
 modelToTune, history = CascadeTraining(model,X_train,Y_train,
@@ -109,6 +160,7 @@ modelToTune, history = CascadeTraining(model,X_train,Y_train,
 history = dict() #INIT DICTIONARY OF RESULTS
 
 sgd = SGD(lr=lr, momentum=0.9) 
+model = getModelEE() #GET MODEL
 model.compile(loss='categorical_crossentropy',
               optimizer=sgd,
               metrics=['accuracy'])

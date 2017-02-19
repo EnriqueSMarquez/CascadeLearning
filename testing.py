@@ -1,6 +1,3 @@
-"""
-  CASCADES VGG STYLE NET AND TRAINS THE END-END MODEL
-"""
 from __future__ import print_function
 from keras.datasets import cifar10
 from keras.models import Sequential
@@ -18,57 +15,7 @@ import os
 from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadeTraining
 
 #GET THE VGG MODEL USED IN THIS TEST
-def getModelCL():
-  model = Sequential()
-  model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
-  model.add(Convolution2D(128, 3, 3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(128,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(128,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(MaxPooling2D((2,2)))
-  model.add(Dropout(0.5))
-
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(256, 3, 3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(256,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(256,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(MaxPooling2D((2,2)))
-  model.add(Dropout(0.5))
-
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(512, 3, 3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(512,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(ZeroPadding2D((1,1)))
-  model.add(Convolution2D(512,3,3,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(MaxPooling2D((2,2)))
-  model.add(Dropout(0.5))
-
-  model.add(Flatten())
-  model.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(Dropout(0.5))
-  model.add(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
-  model.add(Activation('relu'))
-  model.add(Dropout(0.5)) 
-  model.add(Dense(nb_classes,W_regularizer=l2(weightDecay)))
-  model.add(Activation('softmax'))
-  return model
-
-
-def getModelEE():
+def getModel():
   model = Sequential()
   model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
   model.add(Convolution2D(128, 3, 3,W_regularizer=l2(weightDecay)))
@@ -95,35 +42,26 @@ def getModelEE():
   model.add(Dropout(0.5))
 
   model.add(Flatten())
-  model.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
+  model.add(Dense(512,W_regularizer=l2(weightDecay)))
   model.add(Activation('relu'))
   model.add(Dropout(0.5))
-  model.add(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
+  model.add(Dense(256,W_regularizer=l2(weightDecay)))
   model.add(Activation('relu'))
   model.add(Dropout(0.5)) 
   model.add(Dense(nb_classes,W_regularizer=l2(weightDecay)))
   model.add(Activation('softmax'))
   return model
 
-batch_size = 128 #BATCH SIZE OF TRAINING/TESTING
+batch_size = 64 #BATCH SIZE OF TRAINING/TESTING
 nb_classes = 10 #NUMBER OF CLASSES (DEPENDING ON THE DATASET 10 OR 100)
-nb_epoch = 50 #NUMBER OF INITIAL EPOCHS FOR THE CASCADE LEARNING
+nb_epoch = 10 #NUMBER OF INITIAL EPOCHS FOR THE CASCADE LEARNING
 lr = 0.01 #INITIAL LEARNING RATE
-weightDecay = 10.e-4 #WEIGHT DECAY OF THE MODEL
+weightDecay = 10e-4 #WEIGHT DECAY OF THE MODEL
 
 sgd = SGD(lr=lr, momentum=0.9) #OPTIMIZER TO USE (STOCHASTIC GRADIENT DESCENT)
-saveResults = True #SAVE THE RESULTS IN FOLDER
-outNeurons = 64
-doCascade = True
+saveResults = False #SAVE THE RESULTS IN FOLDER
+stringOfHistory = './VGG_Results/VGGCascade_Opt_Test' #FOLDER TO SAVE RESULTS IF TRUE
 
-# stringOfHistory = './VGG_Results/VGGCascade_Opt_128' #NED
-# stringOfHistory = './VGG_Results/VGGCascade_Opt_512' #NED
-# stringOfHistory = './VGG_Results/VGGCascade_Opt_128' #IRIDIS
-# stringOfHistory = './VGG_Results/VGGCascade_Opt_256' #IRIDIS
-# stringOfHistory = './VGG_Results/VGGCascade_Opt_64' #IRIDIS
-stringOfHistory = './VGG_Results/VGGCascade_Opt_BiggerNet_Dropout' #IRIDIS
-
-print(stringOfHistory)
 (X_train, y_train), (X_test, y_test) = cifar10.load_data() #GET DATA
 
 Y_train = np_utils.to_categorical(y_train, nb_classes)
@@ -158,25 +96,20 @@ datagen = ImageDataGeneratorForCascading(featurewise_center=True,  #MEAN 0
 
 datagen.fit(X_train) #CALCULATE NORMALIZATION AND WHITENING PARAMETERS
 
-if doCascade:
-  model = getModelCL() #GET THE MODEL
+model = getModel() #GET THE MODEL
 
-  #CASCADE THE MODEL
-  cascadedModel, history = CascadeTraining(model,X_train,Y_train,
-                                                dataAugmentation=datagen,
-                                                X_val=X_val,Y_val=Y_val,
-                                                X_test=X_test,Y_test=Y_test,
-                                                stringOfHistory=stringOfHistory,
-                                                epochs=nb_epoch,
-                                                loss='categorical_crossentropy',
-                                                optimizer=sgd,initialLr=lr,weightDecay=weightDecay,
-                                                patience=10,windowSize=5,batch_size=batch_size,
-                                                outNeurons=outNeurons,
-                                                dropout=False)
-else:
-  history = dict()
+#CASCADE THE MODEL
+cascadedModel, history = CascadeTraining(model,X_train,Y_train,
+                                              dataAugmentation=datagen,
+                                              X_val=X_val,Y_val=Y_val,
+                                              X_test=X_test,Y_test=Y_test,
+                                              stringOfHistory=stringOfHistory,
+                                              epochs=nb_epoch,
+                                              loss='categorical_crossentropy',
+                                              optimizer=sgd,initialLr=lr,weightDecay=weightDecay,
+                                              patience=10,windowSize=5,batch_size=batch_size)
 
-model = getModelEE() #GET MODEL
+model = getModel() #GET MODEL
 model.compile(loss='categorical_crossentropy',
               optimizer=sgd,
               metrics=['accuracy'])
@@ -196,12 +129,11 @@ for X_batch, Y_batch in datagen.flow(X_train, Y_train,batch_size=1):
         break
 tmpX = np.asarray(tmpX)
 tmpY = np.asarray(tmpY)
-sgd = SGD(lr=0.01, momentum=0.9) #OPTIMIZER TO USE (STOCHASTIC GRADIENT DESCENT)
 
 #CALLBACK TO REDUCE THE LEARNING RATE ON PLATEOUS AND SAVE THE VALIDATION/TESTING RESULTS
 learningCall = LearningRateC(X_val,Y_val,X_test,Y_test,datagen,batch_size,patience=75,windowSize=10)
 #TRAIN THE END-END MODEL
-tmpHistory = model.fit(tmpX, tmpY, batch_size=batch_size, nb_epoch=300, verbose=1,callbacks=[learningCall])
+tmpHistory = model.fit(tmpX, tmpY, batch_size=batch_size, nb_epoch=300, verbose=2,callbacks=[learningCall])
 
 #OBTAIN FINAL RESULTS
 history['normalTraining'] = dict()

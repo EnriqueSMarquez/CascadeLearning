@@ -16,7 +16,6 @@ from keras.regularizers import l2
 from keras.utils import generic_utils
 from keras.models import model_from_json
 import cPickle
-import time
 
 class LearningRateC(Callback):
     """Callback to reduce the learning rate when validation accuracy plateus,
@@ -394,7 +393,7 @@ def GetConfusionMatrix(modelToTest,testData,labels,datagen,numberOfClasses=10):
 def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dataAugmentation=None,
                         X_val=None,Y_val=None,epochs=20,loss='categorical_crossentropy',
                         optimizer='sgd',initialLr=0.01,weightDecay=10e-4,patience=10,
-                        windowSize=5,batch_size=128):
+                        windowSize=5,batch_size=128,outNeurons=64,dropout=False):
     """Method to cascade a given model
 
         # Arguments
@@ -410,6 +409,7 @@ def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dat
             weightDecay: weight decay of the training function.
             patience, windowSize: parameters used in the callback.
             batch_size: batch size of training
+            outNeurons: number of neurons in output block
         #Returns
             Results of training (accuracy, loss), and full model once cascaded
     """
@@ -451,11 +451,13 @@ def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dat
                 del tmp
 
                 #APPEND OUTPUT BLOCK TO MODEL
+                if dropout:
+                    nextModelToTrain.add(Dropout(0.5))
                 nextModelToTrain.add(Flatten())
-                nextModelToTrain.add(Dense(512,W_regularizer=l2(weightDecay)))
+                nextModelToTrain.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
                 nextModelToTrain.add(Activation('relu'))
                 nextModelToTrain.add(Dropout(0.5))
-                nextModelToTrain.add(Dense(256,W_regularizer=l2(weightDecay)))
+                nextModelToTrain.add(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
                 nextModelToTrain.add(Activation('relu'))
                 nextModelToTrain.add(Dropout(0.5))
                 nextModelToTrain.add(Dense(10,W_regularizer=l2(weightDecay)))
@@ -502,17 +504,19 @@ def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dat
                     nextShape = nextModelToPredict.predict(X_train[0:2]).shape[1::][0]
                     layerToAppend = Dense(k['output_dim'],input_dim=nextShape)
                     nextModelToTrain[0] = layerToAppend
-            
+                
+                if dropout:
+                    nextModelToTrain.append(Dropout(0.5))
                 #IF THE OUTPUT HAS NOT BEEN FLATTENED 
                 if((nextModelToTrain[-1].get_config()['name'][0:-2] != 'flatten') and (nextModelToTrain[0].get_config()['name'][0:-2] != 'dense') and (nextModelToTrain[0].get_config()['name'][0:-3] != 'dense')):
                     nextModelToTrain.append(Flatten())
                 #IF OUTPUT BLOCK HAS NOT BEEN CONNECTED
                 if((nextModelToTrain[0].get_config()['name'][0:-2] != 'dense') and (nextModelToTrain[0].get_config()['name'][0:-3] != 'dense')):
                     k = nextModelToTrain[0].get_config()
-                    nextModelToTrain.append(Dense(512,W_regularizer=l2(weightDecay)))
+                    nextModelToTrain.append(Dense(outNeurons,W_regularizer=l2(weightDecay)))
                     nextModelToTrain.append(Activation('relu'))
                     nextModelToTrain.append(Dropout(0.5))
-                    nextModelToTrain.append(Dense(256,W_regularizer=l2(weightDecay)))
+                    nextModelToTrain.append(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
                     nextModelToTrain.append(Activation('relu'))
                     nextModelToTrain.append(Dropout(0.5))
                 nextModelToTrain.append(Dense(10,W_regularizer=l2(weightDecay)))
