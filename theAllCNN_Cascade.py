@@ -1,3 +1,6 @@
+"""
+  CASCADES THE ALL CNN AND TRAINS THE END-END MODEL
+"""
 from __future__ import print_function
 from keras.datasets import cifar10
 from keras.models import Sequential
@@ -11,7 +14,7 @@ import numpy as np
 from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadeTraining
 
 #GET THE ALL CNN MODEL WITH DENSE LAYERS
-def getModelCL():
+def getModel1():
     model = Sequential()
     model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
     model.add(Convolution2D(96,3,3,W_regularizer=l2(weightDecay)))
@@ -51,10 +54,10 @@ def getModelCL():
     model.add(Activation('relu'))
 
     model.add(Flatten())
-    model.add(Dense(512,W_regularizer=l2(weightDecay)))
+    model.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(256,W_regularizer=l2(weightDecay)))
+    model.add(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
     model.add(Dense(10,W_regularizer=l2(weightDecay)))
@@ -62,7 +65,7 @@ def getModelCL():
     return model
 
 #GET THE ALL CNN MODEL WITH DENSE LAYERS
-def getModelEE():
+def getModel2():
     model = Sequential()
     model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
     model.add(Convolution2D(96,3,3,W_regularizer=l2(weightDecay)))
@@ -91,28 +94,28 @@ def getModelEE():
     model.add(Activation('relu'))
 
     model.add(Flatten())
-    model.add(Dense(512,W_regularizer=l2(weightDecay)))
+    model.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(256,W_regularizer=l2(weightDecay)))
+    model.add(Dense(outNeurons/2,W_regularizer=l2(weightDecay)))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
     model.add(Dense(10,W_regularizer=l2(weightDecay)))
     model.add(Activation('softmax'))
     return model
 
-batch_size = 64 #BATCH SIZE OF TRAINING AND TESTING
+batch_size = 128 #BATCH SIZE OF TRAINING AND TESTING
 nb_classes = 10 #NUMBER OF CLASSES
 nb_epoch = 50 #NUMBER OF EPOCHS DURING CASCADE TRAINING
 lr = 0.01 #INITIAL LEARNING RATE
-weightDecay = 10e-4 #WEIGHT DECAY OF THE TRAINING PROCEDURE
+weightDecay = 10.e-4 #WEIGHT DECAY OF THE TRAINING PROCEDURE
 sgd = SGD(lr=lr, momentum=0.9) #OPTIMIZER
 saveResults = False
 
 (X_train, y_train), (X_test, y_test) = cifar10.load_data() #LOAD DATA
 
 stringOfHistory = './TheAllCNN_Results/theAllCNN_BiggerNet_NoDropout'
-
+print(stringOfHistory)
 Y_train = np_utils.to_categorical(y_train, nb_classes) #CONVERT CLASS VECTORNS INTO AN OUTPUT MATRIX
 Y_test = np_utils.to_categorical(y_test, nb_classes)
 
@@ -120,6 +123,7 @@ X_train = X_train.astype('float32')
 X_test = X_test.astype('float32')
 X_train /= 255
 X_test /= 255
+outNeurons = 256
 
 #SMALLER SET FOR DEBUGGING PURPOSES
 # X_train = X_train[0:100]
@@ -144,7 +148,7 @@ datagen = ImageDataGeneratorForCascading(featurewise_center=True,  #MEAN 0
 
 datagen.fit(X_train) #CALCULATE NORMALIZATION AND WHITENING PARAMETERS
 
-model = getModelCL() #GET MODEL
+model = getModel2() #GET MODEL
 
 #CASCADE THE MODEL
 modelToTune, history = CascadeTraining(model,X_train,Y_train,
@@ -155,12 +159,13 @@ modelToTune, history = CascadeTraining(model,X_train,Y_train,
                                           epochs=nb_epoch,
                                           loss='categorical_crossentropy',
                                           optimizer=sgd,initialLr=lr,weightDecay=weightDecay,
-                                          patience=10,windowSize=5,batch_size=batch_size)
+                                          patience=10,windowSize=5,batch_size=batch_size,
+                                          dropout=False)
 
-history = dict() #INIT DICTIONARY OF RESULTS
+# history = dict() #INIT DICTIONARY OF RESULTS
 
 sgd = SGD(lr=lr, momentum=0.9) 
-model = getModelEE() #GET MODEL
+model = getModel2() #GET MODEL
 model.compile(loss='categorical_crossentropy',
               optimizer=sgd,
               metrics=['accuracy'])

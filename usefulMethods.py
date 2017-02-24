@@ -1,3 +1,6 @@
+"""
+    USEFUL METHODS USED IN THIS REPOSITOTY
+"""
 from keras.preprocessing.image import DirectoryIterator, Iterator, transform_matrix_offset_center, flip_axis, apply_transform
 import numpy as np
 import re
@@ -539,7 +542,7 @@ def CascadeTraining(model,X_train,Y_train,X_test,Y_test,stringOfHistory=None,dat
             print('MODEL TO TRAIN LAYERS') #PLOT LAYERS OF MODEL TO TRAIN
             for k in nextModelToTrain.layers:
                 print(k.get_config()['name'])   
-            currentEpochs = epochs + (10*i) #SET THE NUMBER OF EPOCHS OF CURRENT RUN
+            currentEpochs = epochs + (0*i) #SET THE NUMBER OF EPOCHS OF CURRENT RUN
             if currentEpochs > 50: #MAXIMUM NUMBER OF EPOCHS ON CASCADE LEARNING IS 50
                 currentEpochs = 50 
             dataAugmentation.modelToPredict = nextModelToPredict #SET MODEL TO GENERATE ARTIFICIAL INPUTS IN GENERATOR

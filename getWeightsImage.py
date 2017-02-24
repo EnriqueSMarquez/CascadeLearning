@@ -1,3 +1,7 @@
+"""
+	SAVE THE FILTERS IN THE VGG MODEL AND SAVE THEM AS AN IMAGE
+"""
+
 from __future__ import print_function
 import numpy as np
 from keras.models import model_from_json

@@ -1,3 +1,6 @@
+"""
+    CALCULATE THE PERFORMANCE AND CONFUSION MATRIX OF EACH LAYER GIVEN AN ALREADY TRAINED MODEL
+"""
 from __future__ import print_function
 from keras.datasets import cifar10
 from keras.models import Sequential

@@ -1,3 +1,6 @@
+"""
+    CASCADES THE ALL CNN WITH MULTIPLE TIMES WITH DIFFERENT STARTING EPOCHS
+"""
 from __future__ import print_function
 from keras.datasets import cifar10
 from keras.models import Sequential

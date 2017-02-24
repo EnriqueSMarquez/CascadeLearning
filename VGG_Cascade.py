@@ -18,7 +18,7 @@ import os
 from usefulMethods import ImageDataGeneratorForCascading, GetConfusionMatrix,LearningRateC, CascadeTraining
 
 #GET THE VGG MODEL USED IN THIS TEST
-def getModelCL():
+def getModel1():
   model = Sequential()
   model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
   model.add(Convolution2D(128, 3, 3,W_regularizer=l2(weightDecay)))
@@ -56,6 +56,18 @@ def getModelCL():
   model.add(MaxPooling2D((2,2)))
   model.add(Dropout(0.5))
 
+  model.add(ZeroPadding2D((1,1)))
+  model.add(Convolution2D(1024, 3, 3,W_regularizer=l2(weightDecay)))
+  model.add(Activation('relu'))
+  model.add(ZeroPadding2D((1,1)))
+  model.add(Convolution2D(1024,3,3,W_regularizer=l2(weightDecay)))
+  model.add(Activation('relu'))
+  model.add(ZeroPadding2D((1,1)))
+  model.add(Convolution2D(1024,3,3,W_regularizer=l2(weightDecay)))
+  model.add(Activation('relu'))
+  model.add(MaxPooling2D((2,2)))
+  model.add(Dropout(0.5))
+
   model.add(Flatten())
   model.add(Dense(outNeurons,W_regularizer=l2(weightDecay)))
   model.add(Activation('relu'))
@@ -68,7 +80,7 @@ def getModelCL():
   return model
 
 
-def getModelEE():
+def getModel2():
   model = Sequential()
   model.add(ZeroPadding2D((1,1),input_shape=(3,32,32)))
   model.add(Convolution2D(128, 3, 3,W_regularizer=l2(weightDecay)))
@@ -113,15 +125,16 @@ weightDecay = 10.e-4 #WEIGHT DECAY OF THE MODEL
 
 sgd = SGD(lr=lr, momentum=0.9) #OPTIMIZER TO USE (STOCHASTIC GRADIENT DESCENT)
 saveResults = True #SAVE THE RESULTS IN FOLDER
-outNeurons = 64
-doCascade = True
+outNeurons = 512
+doCascade = False
 
 # stringOfHistory = './VGG_Results/VGGCascade_Opt_128' #NED
 # stringOfHistory = './VGG_Results/VGGCascade_Opt_512' #NED
 # stringOfHistory = './VGG_Results/VGGCascade_Opt_128' #IRIDIS
 # stringOfHistory = './VGG_Results/VGGCascade_Opt_256' #IRIDIS
 # stringOfHistory = './VGG_Results/VGGCascade_Opt_64' #IRIDIS
-stringOfHistory = './VGG_Results/VGGCascade_Opt_BiggerNet_Dropout' #IRIDIS
+stringOfHistory = './VGG_Results/VGGCascade_Opt_BiggerNet_NoDropout' #IRIDIS
+# stringOfHistory = None
 
 print(stringOfHistory)
 (X_train, y_train), (X_test, y_test) = cifar10.load_data() #GET DATA
@@ -135,7 +148,7 @@ X_test = X_test.astype('float32')
 X_train /= 255
 X_test /= 255
 
-#LESS DATA TO TEST SCRIPT FASTER
+# #LESS DATA TO TEST SCRIPT FASTER
 # X_train = X_train[0:100]
 # Y_train = Y_train[0:100]
 # X_test = X_test[0:100]
@@ -159,14 +172,14 @@ datagen = ImageDataGeneratorForCascading(featurewise_center=True,  #MEAN 0
 datagen.fit(X_train) #CALCULATE NORMALIZATION AND WHITENING PARAMETERS
 
 if doCascade:
-  model = getModelCL() #GET THE MODEL
+  model = getModel1() #GET THE MODEL
 
   #CASCADE THE MODEL
   cascadedModel, history = CascadeTraining(model,X_train,Y_train,
                                                 dataAugmentation=datagen,
                                                 X_val=X_val,Y_val=Y_val,
                                                 X_test=X_test,Y_test=Y_test,
-                                                stringOfHistory=stringOfHistory,
+                                                stringOfHistory=None,
                                                 epochs=nb_epoch,
                                                 loss='categorical_crossentropy',
                                                 optimizer=sgd,initialLr=lr,weightDecay=weightDecay,
@@ -174,9 +187,12 @@ if doCascade:
                                                 outNeurons=outNeurons,
                                                 dropout=False)
 else:
-  history = dict()
+  if stringOfHistory != None and os.path.isfile(stringOfHistory + '.txt'): #LOAD HISTORY FILE IF IT EXISTS
+        history = cPickle.load(open(stringOfHistory + '.txt','r'))
+  else: #OTHERWISE INITIALIZE
+      history = dict()
 
-model = getModelEE() #GET MODEL
+model = getModel1() #GET MODEL
 model.compile(loss='categorical_crossentropy',
               optimizer=sgd,
               metrics=['accuracy'])
@@ -199,7 +215,7 @@ tmpY = np.asarray(tmpY)
 sgd = SGD(lr=0.01, momentum=0.9) #OPTIMIZER TO USE (STOCHASTIC GRADIENT DESCENT)
 
 #CALLBACK TO REDUCE THE LEARNING RATE ON PLATEOUS AND SAVE THE VALIDATION/TESTING RESULTS
-learningCall = LearningRateC(X_val,Y_val,X_test,Y_test,datagen,batch_size,patience=75,windowSize=10)
+learningCall = LearningRateC(X_val,Y_val,X_test,Y_test,datagen,batch_size,patience=75,windowSize=20)
 #TRAIN THE END-END MODEL
 tmpHistory = model.fit(tmpX, tmpY, batch_size=batch_size, nb_epoch=300, verbose=1,callbacks=[learningCall])
 
