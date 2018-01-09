@@ -60,6 +60,11 @@ def resBlockWithoutBypass(inputToBlock,filters,stride=(1,1)):
         filters *= 2
     return Convolution2D(filters, 3, 3,W_regularizer=l2(weightDecay),border_mode='same',init='he_normal')(relu2)
 
+def convLayer(inputBlock,filters,stride=(1,1)):
+    conv1 = Convolution2D(filters, 3, 3,W_regularizer=l2(weightDecay),border_mode='same',init='he_normal',subsample=stride)(inputToBlock)
+    bn2 = BatchNormalization(axis=1, mode=2)(conv1)
+    return Activation('relu')(bn2)
+
 def connectOutputBlock1(lastLayer):
     flatten = Flatten()(lastLayer)
     dense1 = Dense(256,W_regularizer=l2(weightDecay),init='he_normal')(flatten)
@@ -211,7 +216,7 @@ epochs = np.linspace(0.4,1,numberOfResBlocks)*nb_epoch
 for currentBlock in range(numberOfResBlocks):
     print('TRAINING ' + str(int(currentBlock+1)) + ' LAYER')
     inputs = Input(shape=currentData[0].shape[1::])
-    currentResBlock = resBlockWithoutBypass(inputs,filtersToCascade[currentBlock],(strides[currentBlock],strides[currentBlock]))
+    currentResBlock = convLayer(inputs,filtersToCascade[currentBlock],(strides[currentBlock],strides[currentBlock]))
     out = connectOutputBlock1(currentResBlock)
     model = Model(input=inputs, output=out)
     plot(model, to_file='ResNetResults/iter' + str(int(currentBlock+1)) + '.png',show_shapes=True)

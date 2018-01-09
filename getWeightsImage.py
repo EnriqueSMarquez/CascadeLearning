@@ -7,7 +7,46 @@ import numpy as np
 from keras.models import model_from_json
 from PIL import Image as im
 
-def getWeightsImage(weights):
+def plot_filters(layer,saving_path='./weights_layer1.jpg',resolution=None,scale=4):
+    weights = layer.get_weights()[0]
+    weights_image = weights_image.transpose((3,0,1,2))
+    if resolution == None:
+        resolution = [int(np.sqrt(len(weights))),int(np.sqrt(len(weights)))]
+    weights_image = np.zeros((weights.shape[3],resolution[0]*weights.shape[0],resolution[1]*weights.shape[1],weights.shape[2]))
+    x = 0
+    y = 0
+    for i in range(len(weights)):
+        weights_image[:,x:x+weights.shape[1],y:y+weights.shape[2]] = weights[i,:,:,:]
+        x += weights.shape[1]
+        if x == len(weights)*weights.shape[1]:
+            x = 0
+            y += weights.shape[2]
+
+    weights_image = np.uint8((weights_image/(2*np.max(np.abs(weights_image)))+0.5)*255)
+
+    weights_image = im.fromarray(np.swapaxes(weights_image,0,2))
+    weights_image = np.asarray(weights_image.resize((resolution[0]*weights.shape[1]*scale,resolution[1]*weights.shape[2]*scale), im.NEAREST))
+
+    maxIndex = scale*weights.shape[1]+1 #25
+    weights_image = np.insert(imageCL,0,0,axis=0)
+    nextIndex = maxIndex
+    for i in range(resolution[0]-1):
+        weights_image = np.insert(weights_image,nextIndex,0,axis=0)
+        nextIndex += maxIndex
+    weights_image = np.insert(weights_image,weights_image.shape[0],0,axis=0)
+
+    weights_image = np.insert(weights_image,0,0,axis=1)
+    nextIndex = maxIndex
+    for i in range(resolution[1]-1):
+        weights_image = np.insert(weights_image,nextIndex,0,axis=1)
+        nextIndex += maxIndex
+    weights_image = np.insert(weights_image,weights_image.shape[1],0,axis=1)
+
+    weights_image = im.fromarray(weights_image)
+    weights_image.save(saving_path)
+
+
+def get_weights_image(weights):
 	"""Method used to plot the weights of the first layer in a VGG model
 
         # Arguments
